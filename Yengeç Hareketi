@@ -1,0 +1,281 @@
+BU KODDA YENGEÇ HAREKETİ YAPILMAKTADIR. 
+
+ARDUİNODAKİ KOD VE JETSONDAKİ KOD AŞAĞIDA VERİLMİŞTİR.
+
+*****ARDUİNO’YA ATTIĞIMIZ KOD 
+
+ 
+
+#include <MAVLink.h> 
+
+ 
+
+#define SYSID 255 
+
+#define COMPID MAV_COMP_ID_SYSTEM_CONTROL 
+
+ 
+
+String komut = ""; 
+
+ 
+
+void setup() { 
+
+Serial.begin(115200); // Jetson ile haberleşme 
+
+Serial1.begin(57600); // Pixhawk ile haberleşme 
+
+delay(3000); // Pixhawk hazır olsun 
+
+} 
+
+ 
+
+// PWM gönderme 
+
+void send_pwm_command(uint8_t servo_channel, uint16_t pwm_value) { 
+
+mavlink_message_t msg; 
+
+uint8_t buf[MAVLINK_MAX_PACKET_LEN]; 
+
+ 
+
+mavlink_msg_command_long_pack( 
+
+SYSID, COMPID, &msg, 
+
+1, 1, 
+
+MAV_CMD_DO_SET_SERVO, 
+
+0, 
+
+servo_channel, pwm_value, 
+
+0, 0, 0, 0, 0 
+
+); 
+
+ 
+
+uint16_t len = mavlink_msg_to_send_buffer(buf, &msg); 
+
+Serial1.write(buf, len); 
+
+} 
+
+ 
+
+// ARM 
+
+void arm_motors() { 
+
+mavlink_message_t msg; 
+
+uint8_t buf[MAVLINK_MAX_PACKET_LEN]; 
+
+ 
+
+mavlink_msg_command_long_pack( 
+
+SYSID, COMPID, &msg, 
+
+1, 1, 
+
+MAV_CMD_COMPONENT_ARM_DISARM, 
+
+0, 
+
+1, 0, 0, 0, 0, 0, 0 
+
+); 
+
+ 
+
+uint16_t len = mavlink_msg_to_send_buffer(buf, &msg); 
+
+Serial1.write(buf, len); 
+
+} 
+
+ 
+
+// Disarm yerine nötr PWM 
+
+void set_neutral_pwm() { 
+
+for (int i = 1; i <= 6; i++) { 
+
+send_pwm_command(i, 1500); 
+
+} 
+
+} 
+
+ 
+
+void loop() { 
+
+while (Serial.available()) { 
+
+char c = Serial.read(); 
+
+if (c == '\n') { 
+
+komut.trim(); 
+
+ 
+
+if (komut == "arm") { 
+
+arm_motors(); 
+
+} 
+
+else if (komut == "ileri") { 
+
+send_pwm_command(1, 1700); 
+
+send_pwm_command(2, 1700); 
+
+send_pwm_command(3, 1700); 
+
+send_pwm_command(4, 1700); 
+
+} 
+
+else if (komut == "geri") { 
+
+send_pwm_command(1, 1300); 
+
+send_pwm_command(2, 1300); 
+
+send_pwm_command(3, 1300); 
+
+send_pwm_command(4, 1300); 
+
+} 
+
+else if (komut == "sol") { 
+
+send_pwm_command(2, 1700); // sol ön 
+
+send_pwm_command(4, 1700); // sol arka 
+
+send_pwm_command(1, 1300); // sağ ön 
+
+send_pwm_command(3, 1300); // sağ arka 
+
+} 
+
+else if (komut == "sag") { 
+
+send_pwm_command(1, 1700); // sağ ön 
+
+send_pwm_command(3, 1700); // sağ arka 
+
+send_pwm_command(2, 1500); // sol ön 
+
+send_pwm_command(4, 1500); // sol arka 
+
+} 
+
+else if (komut == "yukari") { 
+
+send_pwm_command(5, 1700); // sağ yukarı 
+
+send_pwm_command(6, 1700); // sol yukarı 
+
+} 
+
+else if (komut == "asagi") { 
+
+send_pwm_command(5, 1300); // sağ aşağı 
+
+send_pwm_command(6, 1300); // sol aşağı 
+
+} 
+
+else if (komut == "stop") { 
+
+set_neutral_pwm(); 
+
+} 
+
+ 
+
+komut = ""; 
+
+} else { 
+
+komut += c; 
+
+} 
+
+} 
+
+} 
+
+
+
+
+
+
+*******JETSON DAKİ PYTHON KOD 
+
+import serial 
+
+import time 
+
+ 
+
+ser = serial.Serial('/dev/ttyUSB0', 115200) 
+
+time.sleep(2) 
+
+ 
+
+def komut_gonder(komut): 
+
+ser.write((komut + '\n').encode()) 
+
+print(f"Gönderildi: {komut}") 
+
+time.sleep(2) # her komut sonrası bekleme 
+
+ 
+
+komutlar = [ 
+
+"arm", 
+
+"ileri", "stop", 
+
+"geri", "stop", 
+
+"sag", "stop", 
+
+"sol", "stop", 
+
+"yukari", "stop", 
+
+"asagi", "stop" 
+
+] 
+
+ 
+
+for k in komutlar: 
+
+komut_gonder(k) 
+
+ 
+
+ser.close() 
+
+
+
+
+KODA ÇALIŞTIRILABİLİR İZNİ VERMEYİ UNUTMA!!!!!! 
