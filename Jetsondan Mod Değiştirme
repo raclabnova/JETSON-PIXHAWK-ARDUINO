@@ -1,0 +1,212 @@
+JETSONDAN ARM ETME MOD DEĞİŞTİRME 
+
+ 
+
+ÇOOOOKK ÇOOOOOK ÖNEMLİİİİİİİİ!!
+MOD DEĞİŞTİRME DİYİNCE SERVO1_FUNCHTİON ÖRNEĞİN MOTOR OLARAK TANIMLANMALI!!!! 
+YİNE İKİ TARAFTADA KOD OLACAK ARDUİNO YÜKLENECEK KODDA JETSON YÜKLENECEK KODDA AŞAĞIDA VERİLMİŞTİR.
+JETSONDAKİ KODU KAYDETTİKTEN SONRA TERMİNALDE python3 dosya_adı.py OLARAK ÇALIŞTIRACAKSIN TABİİ Kİ BUNDAN ÖNCE JETSON KURULUMU YAPILMIŞ OLMALI ARDUİNO JETSON ARASI UNUTMA. İLK BAĞLANTIYI BAŞLATIRSIN ÇÜNKÜ.
+
+
+
+******* ARDUİNO KOD  
+
+
+#include <MAVLink.h> 
+
+ 
+
+#define SYSID 255 
+
+#define COMPID MAV_COMP_ID_SYSTEM_CONTROL 
+
+ 
+
+String komut = ""; 
+
+ 
+
+void setup() { 
+
+Serial.begin(115200); // Jetson ile haberleşme 
+
+Serial1.begin(57600); // Pixhawk ile haberleşme 
+
+delay(3000); // Pixhawk'ın açılmasını bekle 
+
+} 
+
+ 
+
+void loop() { 
+
+// Jetson'dan veri oku 
+
+while (Serial.available()) { 
+
+char c = Serial.read(); 
+
+if (c == '\n') { 
+
+komut.trim(); 
+
+ 
+
+if (komut == "ARM") { 
+
+arm_motors(); 
+
+} else if (komut.startsWith("MODE:")) { 
+
+uint8_t mode = komut.substring(5).toInt(); // örn. "MODE:0" 
+
+set_flight_mode(mode); 
+
+} 
+
+ 
+
+komut = ""; 
+
+} else { 
+
+komut += c; 
+
+} 
+
+} 
+
+} 
+
+ 
+
+void arm_motors() { 
+
+mavlink_message_t msg; 
+
+uint8_t buf[MAVLINK_MAX_PACKET_LEN]; 
+
+ 
+
+mavlink_msg_command_long_pack( 
+
+SYSID, COMPID, &msg, 
+
+1, 1, 
+
+MAV_CMD_COMPONENT_ARM_DISARM, 
+
+0, 
+
+1, 0, 0, 0, 0, 0, 0 
+
+); 
+
+ 
+
+uint16_t len = mavlink_msg_to_send_buffer(buf, &msg); 
+
+Serial1.write(buf, len); 
+
+} 
+
+ 
+
+void set_flight_mode(uint8_t mode) { 
+
+mavlink_message_t msg; 
+
+uint8_t buf[MAVLINK_MAX_PACKET_LEN]; 
+
+ 
+
+mavlink_msg_set_mode_pack( 
+
+SYSID, COMPID, &msg, 
+
+1, 
+
+MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, 
+
+mode 
+
+); 
+
+ 
+
+uint16_t len = mavlink_msg_to_send_buffer(buf, &msg); 
+
+Serial1.write(buf, len); 
+
+} 
+
+ 
+
+ 
+
+               
+
+ 
+****** JETSONDAKİ PYTHON KODU  
+
+#!/usr/bin/env python3 
+
+import serial 
+
+import time 
+
+ 
+
+# Arduino'nun bağlı olduğu seri port (Jetson'da /dev/ttyUSB0 olabilir) 
+
+arduino_port = '/dev/ttyUSB0' 
+
+baud_rate = 115200 # Arduino ile haberleşme hızı 
+
+ 
+
+# Seri portu aç 
+
+ser = serial.Serial(arduino_port, baud_rate, timeout=1) 
+
+ 
+
+# Birkaç saniye bekle (Arduino'nun açılmasını beklemek için) 
+
+time.sleep(2) 
+
+ 
+
+# "ARM" komutunu gönder 
+
+def arm_motors(): 
+
+ser.write(b"ARM\n") # Arduino'ya ARM komutunu gönder 
+
+ 
+
+# Uçuş modunu değiştirme komutu 
+
+def set_mode(mode): 
+
+ser.write(f"MODE:{mode}\n".encode()) # Örneğin "MODE:0" komutunu gönder 
+
+ 
+
+# Motorları ARM et 
+
+arm_motors() 
+
+ 
+
+# Uçuş modunu değiştirme (örneğin, "MODE:1" komutunu gönder) 
+
+set_mode(1) 
+
+ 
+
+# Seri portu kapat 
+
+ser.close() 
+
+ 
