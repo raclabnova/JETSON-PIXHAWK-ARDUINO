@@ -1,0 +1,136 @@
+JETSONDAN ARDUİNOYA PWM GÖNDERME   
+
+BU KODDA SIRASIYLA İLERİ2 MOTOR, İLERİ4 MOTOR, GERİ4 MOTOR, EN SONDA MOTORLAR 1500E ÇEKİLEREK ARAÇ DURDURULUR.  
+
+BU KODUN ÇALIŞABİLMESİ İÇİN QGROUNDCONTROLDE SERVO_FUNCHTİON=MOTOR1 DE SEÇİLİ OLMAMASI RCIN1 DE SEÇİLİ OLMASI GEREKİR.(TÜM MOTORLAR İÇİN GEÇERLİ) 
+
+RC KONTROLÜNDE DİREKT DİSARM YAPAMIYORUZ.BU YÜZDEN BİZDE MOTORLARIN HEPSİNİ 1500E ÇEKİP MOTORLARI DURDURUYORUZ. 
+
+İKİ TARAFTADA KOD YAZMAMIZ GEREKİYOR. HEM JETSON TARAFINDAKİ KOD HEM ARDUİNO TARAFINDAKİ KOD AŞAĞIDA VERİLMİŞTİR. ARDUİNO KODUMUZU ARDUİNO MEGA İÇİNE YÜKLÜYORUZ. JETSONDA DA KODU NOT DEFTERİNE YAPIŞTIRDIKTAN SONRA ÇALIŞTIRILABİLİR YAPMAMIZ GEREKİR ÇALIŞMASI İÇİN.EN SONDADA KODU BAŞLATMAK İÇİN TERMİNALDE pyhton3 dosya_adı.py şeklinde çalıştıyoruz.
+ÖNEMLİ!!!!! MAVLink.h kütüphanesini arduinoda indirmek gerekli. kodun çalışabilmesi için.
+
+*****ARDUİNO KODU
+
+#include <MAVLink.h> 
+
+ 
+
+#define SYSID 255 
+
+#define COMPID MAV_COMP_ID_SYSTEM_CONTROL 
+
+ 
+
+String komut = ""; 
+
+ 
+
+void setup() { 
+
+Serial.begin(115200); // Jetson ile haberleşme 
+
+Serial1.begin(57600); // Pixhawk ile haberleşme 
+
+delay(3000); // Pixhawk'ın açılmasını bekle 
+
+} 
+
+ 
+
+void loop() { 
+
+while (Serial.available()) { 
+
+char c = Serial.read(); 
+
+if (c == '\n') { 
+
+komut.trim(); 
+
+ 
+
+if (komut == "1") { 
+
+arm_motors(); // 1: ARM 
+
+} else if (komut == "2") { 
+
+set_flight_mode(0); // 2: STABILIZE (mode id: 0) 
+
+} else if (komut == "3") { 
+
+set_flight_mode(1); // 3: MANUAL (mode id: 1) 
+
+} 
+
+ 
+
+komut = ""; 
+
+} else { 
+
+komut += c; 
+
+} 
+
+} 
+
+
+
+********JETSON TARAFINDAKİ KOD 
+
+
+import serial 
+
+import time 
+
+ 
+
+ser = serial.Serial('/dev/ttyUSB0', 115200) 
+
+time.sleep(2) 
+
+ 
+
+def komut_gonder(komut): 
+
+ser.write((komut + '\n').encode()) 
+
+print(f"Komut gönderildi: {komut}") 
+
+ 
+
+# Komutları sırayla gönder 
+
+komut_gonder("arm") 
+
+time.sleep(1) 
+
+ 
+
+komut_gonder("ileri2") 
+
+time.sleep(3) 
+
+ 
+
+komut_gonder("ileri4") 
+
+time.sleep(3) 
+
+ 
+
+komut_gonder("geri4") 
+
+time.sleep(3) 
+
+ 
+
+# Geri sonrası PWM'leri nötr (1500) yap 
+
+komut_gonder("stop") 
+
+print("Tüm motorlar durduruldu.") 
+
+
+ 
